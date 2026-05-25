@@ -41,7 +41,7 @@ public enum UserInfo {
 
         return Info(
             title: "App Version:",
-            detail: "\(version)"
+            detail: "\(version) (\(NSLocalizedString("timo_app_version", comment: "")))"
         )
     }
 

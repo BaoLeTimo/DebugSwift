@@ -102,7 +102,7 @@ final class NetworkTableViewCell: UITableViewCell {
         // Method and basic info
         methodLabel.text = "[\(model.method ?? "GET")]"
         numberLabel.text = model.id
-        statusCodeLabel.text = model.statusCode
+        statusCodeLabel.text = getResponseCodeDisplay(model)
         descriptionLabel.text = formatURL(model.url?.absoluteString)
         timestampLabel.text = formatTimestamp(model.startTime)
         
@@ -153,6 +153,51 @@ final class NetworkTableViewCell: UITableViewCell {
         }
         
         return timestamp
+    }
+
+    private func getResponseCodeDisplay(_ model: HttpModel) -> String? {
+        if let code = extractCode(from: model.decryptedResponseData) {
+            return code
+        }
+
+        if let code = extractCode(from: model.responseData) {
+            return code
+        }
+
+        return model.statusCode
+    }
+
+    private func extractCode(from data: Data?) -> String? {
+        guard let data,
+              let object = try? JSONSerialization.jsonObject(with: data) else {
+            return nil
+        }
+
+        return extractCode(from: object)
+    }
+
+    private func extractCode(from object: Any) -> String? {
+        if let dictionary = object as? [String: Any] {
+            if let code = dictionary["code"] {
+                return String(describing: code)
+            }
+
+            for value in dictionary.values {
+                if let code = extractCode(from: value) {
+                    return code
+                }
+            }
+        }
+
+        if let array = object as? [Any] {
+            for item in array {
+                if let code = extractCode(from: item) {
+                    return code
+                }
+            }
+        }
+
+        return nil
     }
     
     private func setupPerformanceIndicators(_ model: HttpModel) {
@@ -212,6 +257,10 @@ final class NetworkTableViewCell: UITableViewCell {
     }
     
     private func getStatusColor(_ model: HttpModel) -> UIColor {
+        if let responseCode = getResponseCodeValue(model) {
+            return responseCode == 200 ? .systemGreen : .systemRed
+        }
+
         guard let statusCode = model.statusCode, let code = Int(statusCode) else {
             return .systemRed
         }
@@ -223,6 +272,14 @@ final class NetworkTableViewCell: UITableViewCell {
         case 500..<600: return .systemRed      // Server Error
         default: return .systemGray            // Other
         }
+    }
+
+    private func getResponseCodeValue(_ model: HttpModel) -> Int? {
+        guard let responseCode = getResponseCodeDisplay(model) else {
+            return nil
+        }
+
+        return Int(responseCode)
     }
     
     private func getContentTypeDisplay(_ mimeType: String) -> String {
